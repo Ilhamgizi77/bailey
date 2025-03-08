@@ -1,3 +1,9 @@
 {
-  "PengirimConfess": {}
+  "userInventory": {},
+  "userCoins": {
+    "6289510305764@s.whatsapp.net": 77
+  },
+  "lastClaim": {
+    "6289510305764@s.whatsapp.net": 1741477605489
+  }
 }
