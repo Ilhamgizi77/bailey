@@ -1,14 +1,14 @@
 const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const googleTTS = require("google-tts-api")
-const fs = require("fs")
+const fs = require("fs");
+const { kill } = require('process');
 
 async function start() {
     const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
 
     const sock = makeWASocket({
         printQRInTerminal: true,
-        auth: state,
-        browser: ["Ubuntu", "Chrome", "22.04"],
+        auth: state
     });
     
 
@@ -18,6 +18,7 @@ async function start() {
             console.log("✅ Berhasil konek ke WhatsApp Web");
         } else if (connection === "close") {
             console.log("❌ Koneksi terputus:", lastDisconnect);
+            start()
         }
     });
 
@@ -26,21 +27,18 @@ async function start() {
         const msg = m.messages[0];
         if (msg.key.fromMe) return;
         let sender = msg.key.remoteJid;
-        if (sender.includes("@g.us")) {
-            sender = msg.key.participant;
-        }
+        let userId = msg.key.participant || sender
         const message = msg.message.conversation || msg.message.extendedTextMessage?.text;
         if (!message) return;
         console.log(`📩 Pesan diterima dari ${sender}: ${message}`);
-
         try {
             if (message.startsWith('.menu')) {
                 const menuText = `Halo, @${sender}!
-Menu Bot:
-.says <kata>
-.tts <kata>
-.confess <pesan> <no tujuan> <dari siapa>
-.confesstts <pesan> <no tujuan> <dari siapa>`;
+                Menu Bot:
+            .says <kata>
+            .tts <kata>
+            .confess <pesan> <no tujuan> <dari siapa>
+            .confesstts <pesan> <no tujuan> <dari siapa>`;
                 await sock.sendMessage(sender, { text: menuText });
             } else if (message.startsWith(".says ")) {
                 const txt = message.slice(6).trim();
@@ -55,7 +53,7 @@ Menu Bot:
                     mimetype: "audio/mpeg",
                     ptt: true 
                 });
-                fs.unlinkSync(filePath);
+                await killAudio()
             } else if (message.startsWith(".confess ")) {
                 const args = message.split(" ");
                 if (args.length < 4) {
@@ -82,6 +80,8 @@ Menu Bot:
                 await sock.sendMessage(id, { text: confessMsg });
                 await sock.sendMessage(id, { audio: { url }, mimetype: "audio/mpeg", ptt: true });
                 await sock.sendMessage(sender, { text: "✅ Pesan rahasia (TTS) berhasil dikirim!" });
+                await killAudio()
+                
             }
         } catch (error) {
             console.error("❌ Gagal mengirim pesan:", error);
@@ -99,3 +99,7 @@ async function saveAudio(url, filePath) {
     fs.writeFileSync(filePath, Buffer.from(buffer));
     console.log(`✅ Audio berhasil disimpan di ${filePath}`);
 }
+async function killAudio(filePath) {
+    fs.unlinkSync(filePath)
+}
+

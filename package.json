@@ -11,8 +11,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@adiwajshing/baileys": "^5.0.0",
     "@whiskeysockets/baileys": "^6.7.13",
-    "google-tts-api": "^0.0.6",
+    "google-tts-api": "^2.0.2",
     "qrcode-terminal": "^0.12.0"
   }
 }
