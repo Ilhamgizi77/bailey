@@ -30,6 +30,47 @@ const rodList = [
     { id: 1, name: "Pancingan Biasa", price: 50, description: "Pancingan Normal Untuk Pemula (Tersedia secara default)" },
 ]
 const rodShopTxt = `*Bot I Rod Shop*\n\n`
+const anonymousQueue = [];
+const activeChats = {};
+
+async function matchAnonymousUser(sock, sender) {
+    if (anonymousQueue.length > 0) {
+        const partner = anonymousQueue.shift();
+        activeChats[sender] = partner;
+        activeChats[partner] = sender;
+        
+        await sock.sendMessage(sender, { text: "✅ Kamu telah dipasangkan dengan seseorang. Mulailah berbicara! Ketik '.stop' untuk mengakhiri percakapan." });
+        await sock.sendMessage(partner, { text: "✅ Kamu telah dipasangkan dengan seseorang. Mulailah berbicara! Ketik '.stop' untuk mengakhiri percakapan." });
+    } else {
+        anonymousQueue.push(sender);
+        await sock.sendMessage(sender, { text: "⏳ Menunggu pasangan anonim... Jika dalam 30 detik tidak ada yang bergabung, sesi akan dibatalkan." });
+        
+        setTimeout(async () => {
+            if (anonymousQueue.includes(sender)) {
+                anonymousQueue.splice(anonymousQueue.indexOf(sender), 1);
+                await sock.sendMessage(sender, { text: "❌ Tidak ada pasangan yang tersedia. Coba lagi nanti." });
+            }
+        }, 30000);
+    }
+}
+
+async function handleAnonymousMessage(sock, sender, message) {
+    if (activeChats[sender]) {
+        const partner = activeChats[sender];
+        await sock.sendMessage(partner, { text: message });
+    }
+}
+
+async function stopAnonymousChat(sock, sender) {
+    if (activeChats[sender]) {
+        const partner = activeChats[sender];
+        delete activeChats[sender];
+        delete activeChats[partner];
+        
+        await sock.sendMessage(sender, { text: "❌ Sesi anonim telah dihentikan." });
+        await sock.sendMessage(partner, { text: "❌ Pasangan anonimmu telah meninggalkan percakapan." });
+    }
+}
 
 function saveUserConfig() {
     const userConfig = {
@@ -76,6 +117,7 @@ async function start() {
             if (!prefixUsed) return;
     
             const command = message.slice(prefixUsed.length).trim();
+            const currcoin = userCoins[userId]
     
             if (command === "menu") {
                 const menuText = `Halo, @${userId}!
@@ -89,6 +131,7 @@ Menu Bot:
     .mycoin - Tampilkan Koin Anda!
     .c / .coinly - Klaim Koin Per-hari
     .logupdate - Menampilkan Update Terbaru
+    .confessmode <nomor> - Memulai Sesi Confess Dengan Membalas Langsung
     
     Semua Huruf Maupun Besar dan Kecil Bisa Menjadi PREFIX.`;
                 await sock.sendMessage(sender, { text: menuText });
@@ -166,12 +209,11 @@ Menu Bot:
                     text: `🎉 Kamu mendapatkan ${coinsEarned} koin! 💰 Total koin kamu sekarang: ${userCoins[userId]}` 
                 });
             } else if (command === "mycoin") {
-                const coin = userCoins[userId]
-                await sock.sendMessage(sender, { text: `Koin Mu Sekarang Adalah 💰${userCoins}💰`})
+                await sock.sendMessage(sender, { text: `Koin Mu Sekarang Adalah 💰${currcoin}💰`})
             } else if (command === "shop") {
                 await sock.sendMessage(sender, { text: shopText })
             } else if (command ==="logupdate" ) {
-                const updateLog = `*CHANGELOG:*\n\n- Memperbaiki Command .mycoin\n- Memperbaiki Beberapa Bug\n- Menambahkan Command .confessmode <nomor>\n*-- 09/03/2025*`;
+                const updateLog = `*CHANGELOG:*\n\n- Memperbaiki Command .mycoin\n- Memperbaiki Beberapa Bug\n- Menambahkan Command .confessmode <nomor>\n*-- 10/03/2025*`;
                 await sock.sendMessage(sender, { text: updateLog })
             } else if (command === "rodshop") {
                 return await sock.sendMessage(sender, { text: rodShopTxt })
@@ -213,7 +255,7 @@ Menu Bot:
             else if (sender.endsWith("@s.whatsapp.net") && confessMode[sender]) {
                 const target = confessMode[sender];
             
-                if (message.trim() === ".batalkan") {
+                if (command.trim() === "batalkan") {
                     delete confessMode[sender];
                     delete confessMode[target];
             
@@ -222,6 +264,12 @@ Menu Bot:
                 }
             
                 await sock.sendMessage(target, { text: message });
+            } else if (command === "start") {
+                await matchAnonymousUser(sock, sender);
+            } else if (command === "stop") {
+                await stopAnonymousChat(sock, sender);
+            } else if (activeChats[sender]) {
+                await handleAnonymousMessage(sock, sender, message);
             }
             
             
